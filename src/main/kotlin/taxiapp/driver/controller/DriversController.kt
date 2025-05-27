@@ -3,11 +3,6 @@ package taxiapp.driver.controller;
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.beans.factory.annotation.Autowired
-import kotlinx.coroutines.delay
-import kotlin.random.Random
-import taxiapp.driver.model.Driver
-import taxiapp.driver.repository.DriversRepository
-import taxiapp.driver.dto.VerificationDataDTO
 import taxiapp.driver.service.DriversService
 
 @RestController

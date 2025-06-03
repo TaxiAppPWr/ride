@@ -1,6 +1,7 @@
 package taxiapp.ride.model;
 
 import jakarta.persistence.*
+import java.time.OffsetDateTime
 
 @Entity(name = "ride")
 data class Ride (
@@ -26,5 +27,9 @@ data class Ride (
     var driverUsername: String? = null,
     @Column
     @Enumerated(EnumType.STRING)
-    var status: RideStatus = RideStatus.NEW
+    var status: RideStatus = RideStatus.NEW,
+    @Column
+    var startTime: OffsetDateTime? = null,
+    @Column
+    var endTime: OffsetDateTime? = null
 )

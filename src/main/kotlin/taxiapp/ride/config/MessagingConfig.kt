@@ -28,10 +28,13 @@ class MessagingConfig {
     @Value("\${rabbit.routing-key.driver-matching.failed}")
     private val driverMatchingFailed: String? = null
 
+    @Value("\${rabbit.routing-key.driver-matching.successful}")
+    private val driverMatched: String? = null
+
 
     @Bean
-    fun rideExchange(): TopicExchange {
-        return TopicExchange("$rideExchangeName")
+    fun rideExchange(): DirectExchange {
+        return DirectExchange("$rideExchangeName")
     }
 
     @Bean
@@ -45,12 +48,17 @@ class MessagingConfig {
     }
 
     @Bean
-    fun paymentStatusUpdatedBinding(@Qualifier("rideExchange") exchange: TopicExchange, rideQueue: Queue): Binding {
+    fun paymentStatusUpdatedBinding(@Qualifier("rideExchange") exchange: DirectExchange, rideQueue: Queue): Binding {
         return BindingBuilder.bind(rideQueue).to(exchange).with("$passengerPaymentStatusUpdated")
     }
 
     @Bean
     fun driverMatchingFailedBinding(@Qualifier("driverMatchingExchange") exchange: DirectExchange, rideQueue: Queue): Binding {
         return BindingBuilder.bind(rideQueue).to(exchange).with("$driverMatchingFailed")
+    }
+
+    @Bean
+    fun driverMatchedBinding(@Qualifier("driverMatchingExchange") exchange: DirectExchange, rideQueue: Queue): Binding {
+        return BindingBuilder.bind(rideQueue).to(exchange).with("$driverMatched")
     }
 }

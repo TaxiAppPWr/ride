@@ -1,11 +1,11 @@
 package taxiapp.ride.service
 
 import org.slf4j.LoggerFactory
+import org.springframework.amqp.core.DirectExchange
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import taxiapp.ride.repository.RideRepository
-import org.springframework.amqp.core.TopicExchange
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
@@ -13,8 +13,11 @@ import org.springframework.web.client.RestTemplate
 import org.springframework.web.util.UriComponentsBuilder
 import taxiapp.ride.dto.event.CancelRideEvent
 import taxiapp.ride.dto.event.GeneratePaymentEvent
+import taxiapp.ride.dto.event.RideFinishedEvent
 import taxiapp.ride.dto.remote.response.CoordinatesTO
+import taxiapp.ride.dto.remote.response.DriverPersonalInfoResponse
 import taxiapp.ride.dto.remote.response.FareCalculationResponse
+import taxiapp.ride.dto.requests.EmailSendRequest
 import taxiapp.ride.dto.requests.MatchingRequest
 import taxiapp.ride.dto.response.ResponseInterface
 import taxiapp.ride.dto.response.ResultTO
@@ -24,6 +27,8 @@ import taxiapp.ride.model.EventName
 import taxiapp.ride.model.PaymentStatus
 import taxiapp.ride.model.RideStatus
 import java.math.BigDecimal
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import kotlin.Int
 import kotlin.String
 
@@ -31,21 +36,27 @@ import kotlin.String
 class RideServiceImpl @Autowired constructor(
     private val rideRepository: RideRepository,
     private val eventCounterService: EventCounterService,
-    @Qualifier("rideExchange") private val rideExchange: TopicExchange,
+    @Qualifier("rideExchange") private val rideExchange: DirectExchange,
     private val template: RabbitTemplate,
     private val restTemplate: RestTemplate,
     @Value("\${service.address.ppayment}")
-    private val paymentServiceAddress: String,
+    private val passengerPaymentServiceAddress: String,
     @Value("\${service.address.fare}")
     private val fareServiceAddress: String,
     @Value("\${service.address.maps}")
     private val mapsServiceAddress: String,
+    @Value("\${service.address.drivers}")
+    private val driverServiceAddress: String,
+    @Value("\${service.address.notification}")
+    private val notificationServiceAddress: String,
     @Value("\${service.address.matching}")
     private val matchingServiceAddress: String,
     @Value("\${rabbit.routing-key.ppayment.generate}")
     private val generatePaymentTopic: String,
     @Value("\${rabbit.routing-key.ride.cancel}")
     private val cancelRideTopic: String,
+    @Value("\${rabbit.routing-key.ride.finished}")
+    private val rideFinishedTopic: String,
 
     ) : RideService {
     private val logger = LoggerFactory.getLogger(RideServiceImpl::class.java)
@@ -162,7 +173,11 @@ class RideServiceImpl @Autowired constructor(
             ride.get().status = RideStatus.PAYMENT_RECEIVED
             rideRepository.save(ride.get())
             logger.info("Finding driver")
-            return findDriver(rideId)
+            val result = findDriver(rideId)
+            if (result.httpStatus == HttpStatus.SERVICE_UNAVAILABLE) {
+                cancelRide(rideId, 100)
+            }
+            return result
         }
 
         if (paymentStatus == PaymentStatus.FAILED.name ||  paymentStatus == PaymentStatus.CANCELED.name) {
@@ -185,7 +200,7 @@ class RideServiceImpl @Autowired constructor(
         val ride = rideRepository.findById(rideId)
 
         if (ride.isEmpty) {
-            logger.error("fun findDriver - Ride with id $rideId has incorrect status to perform this action.")
+            logger.error("fun findDriver - No ride with id $rideId")
             return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
         }
 
@@ -244,8 +259,115 @@ class RideServiceImpl @Autowired constructor(
                 messages = listOf("Matching service returned: ${response.statusCode}")
             )
         }
-        logger.info("fun findDriver - Request for driver sent successfully.")
+        ride.get().status = RideStatus.AWAITING_DRIVER
+        rideRepository.save(ride.get())
+        logger.info("fun findDriver - Ride $rideId awaiting driver confirmation.")
         return ResultTO(HttpStatus.OK)
+    }
+
+    override fun driverConfirmedRide(
+        rideId: Long,
+        driverUsername: String
+    ): ResponseInterface {
+        val ride = rideRepository.findById(rideId)
+
+        if (ride.isEmpty) {
+            logger.error("fun driverConfirmedRide - No ride with id $rideId")
+            return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
+        }
+
+        if (ride.get().status != RideStatus.AWAITING_DRIVER) {
+            logger.error("fun driverConfirmedRide - Expected ride $rideId to have status ${RideStatus.AWAITING_DRIVER}. Ride status is ${ride.get().status}")
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Expected ride $rideId to have status ${RideStatus.AWAITING_DRIVER}"))
+        }
+
+        ride.get().driverUsername = driverUsername
+
+        val driverUri = UriComponentsBuilder
+            .fromUriString("$driverServiceAddress/api/drivers")
+            .queryParam("username", driverUsername)
+            .build()
+            .toUri()
+
+        val driverInfo = restTemplate.getForEntity(driverUri, DriverPersonalInfoResponse::class.java)
+
+        if (!driverInfo.statusCode.is2xxSuccessful) {
+            logger.error("Driver service returned: ${driverInfo.statusCode}")
+            return ResultTO(
+                httpStatus = HttpStatus.SERVICE_UNAVAILABLE,
+                messages = listOf("Driver service returned: ${driverInfo.statusCode}")
+            )
+        }
+
+        if (driverInfo.body == null) {
+            logger.error("fun driverConfirmedRide - Driver info request returned empty body")
+            return ResultTO(HttpStatus.SERVICE_UNAVAILABLE)
+        }
+
+        val notificationUri = UriComponentsBuilder
+            .fromUriString("$notificationServiceAddress/api/notification/email")
+            .queryParam("username", driverUsername)
+            .build()
+            .toUri()
+
+
+        val message = "Driver confirmed ride\nDriver information:" +
+                "\nfirstname: ${driverInfo.body!!.driverPersonalData.firstname}" +
+                "\nlastname: ${driverInfo.body!!.driverPersonalData.lastname}" +
+                "\nphone number: ${driverInfo.body!!.driverPersonalData.phoneNumber}"
+
+        val emailRequest = EmailSendRequest(
+            recipient = "266568@student.pwr.edu.pl",
+            subject = "TaxiApp notification",
+            body = message
+        )
+
+        val response = restTemplate.postForEntity(notificationUri, emailRequest, Object::class.java)
+        ride.get().status = RideStatus.IN_PROGRESS
+        ride.get().startTime = OffsetDateTime.now()
+        rideRepository.save(ride.get())
+        logger.info("fun driverConfirmedRide - Email sent successfully. Driver $driverUsername | ride ${ride.get()}")
+
+        return  ResultTO(HttpStatus.OK)
+    }
+
+    override fun finishRide(
+        rideId: Long,
+        driverUsername: String
+    ): ResponseInterface {
+        val ride = rideRepository.findById(rideId)
+
+        if (ride.isEmpty) {
+            logger.info("fun finishRide - No ride with id $rideId")
+            return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
+        }
+
+        if (ride.get().status != RideStatus.IN_PROGRESS) {
+            logger.info("fun finishRide - Cannot finish ride $rideId that is not ${RideStatus.IN_PROGRESS}")
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Cannot finish ride $rideId that is not ${RideStatus.IN_PROGRESS}"))
+        }
+
+        if (ride.get().driverUsername != driverUsername) {
+            logger.info("fun finishRide - Driver username does not match the driver assigned to ride $rideId")
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Driver username ($driverUsername) does not match the driver assigned to ride $rideId (${ride.get().driverUsername})"))
+        }
+
+        ride.get().status = RideStatus.FINISHED
+        ride.get().endTime = OffsetDateTime.now()
+        rideRepository.save(ride.get())
+
+        val event = RideFinishedEvent(
+            rideFinishedEventId = eventCounterService.getNextId(EventName.RIDE_FINISHED),
+            rideId = rideId,
+            driverUsername = driverUsername,
+            startTime = ride.get().startTime!!,
+            endTime = ride.get().endTime!!,
+            driverEarning = ride.get().driverEarnings,
+        )
+        template.convertAndSend(rideExchange.name, rideFinishedTopic, event)
+        logger.info("Ride $rideId finished")
+
+        return ResultTO(HttpStatus.OK, listOf("Ride finished successfully"))
     }
 }
 

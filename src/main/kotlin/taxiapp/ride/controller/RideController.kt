@@ -24,4 +24,21 @@ class RideController @Autowired constructor(
         val response = driversService.acceptProposedRide(rideId)
         return ResponseEntity.status(response.httpStatus).body(response.messages)
     }
+
+    @PostMapping("/finish")
+    fun finishRide(@RequestParam rideId: Long, @RequestParam driverUsername: String): ResponseEntity<Any> {
+        val response = driversService.finishRide(rideId, driverUsername)
+        if (!response.isSuccess()) {
+            return ResponseEntity.status(response.httpStatus).body(response.messages)
+        }
+        return ResponseEntity.ok(response)
+    }
+
+    @PostMapping("/cancel")
+
+    @GetMapping
+    fun getRideInfo(@RequestParam rideId: Long): ResponseEntity<Any> {
+        return ResponseEntity.ok(driversService.getRideInfo(rideId))
+    }
+
 }

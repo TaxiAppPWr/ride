@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper
+import taxiapp.ride.dto.event.DriverMatchedEvent
 import taxiapp.ride.dto.event.MatchingFailedEvent
 import taxiapp.ride.dto.event.PassengerPaymentStatusUpdatedEvent
 
@@ -28,7 +29,8 @@ class RabbitConfig {
             setIdClassMapping(
                 mapOf(
                     "taxiapp.passengerpayment.dto.event.PassengerPaymentStatusUpdatedEvent" to PassengerPaymentStatusUpdatedEvent::class.java,
-                    "org.taxiapp.matching.dto.events.MatchingFailedEvent" to MatchingFailedEvent::class.java
+                    "org.taxiapp.matching.dto.events.MatchingFailedEvent" to MatchingFailedEvent::class.java,
+                    "org.taxiapp.matching.dto.events.DriverMatchedEvent" to DriverMatchedEvent::class.java
                 )
             )
         }

@@ -5,7 +5,7 @@ enum class RideStatus {
     AWAITING_PAYMENT,
     PAYMENT_RECEIVED,
     AWAITING_DRIVER,
-    CANCELLED,
     IN_PROGRESS,
-    FINISHED
+    FINISHED,
+    CANCELLED
 }

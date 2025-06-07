@@ -121,15 +121,11 @@ class RideServiceImpl @Autowired constructor(
 
         ride.get().status = RideStatus.AWAITING_PAYMENT
 
-        // TODO - get user info from cognito
         val event = GeneratePaymentEvent(
             generatePaymentEventId = eventCounterService.getNextId(EventName.GENERATE_LINK),
             rideId = rideId,
             amount = ride.get().fare,
-            firstname = "temp",
-            lastname = "temp",
-            phoneNumber = "+48123456789",
-            email = "temp@temp.com"
+            passengerUsername = ride.get().passengerUsername,
         )
         template.convertAndSend(rideExchange.name, generatePaymentTopic, event)
         logger.atInfo().log("fun acceptProposedRide - Ride accepted: rideId=${rideId}")

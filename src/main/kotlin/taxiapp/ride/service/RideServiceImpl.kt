@@ -17,17 +17,17 @@ import taxiapp.ride.dto.event.RideFinishedEvent
 import taxiapp.ride.dto.remote.response.CoordinatesTO
 import taxiapp.ride.dto.remote.response.DriverPersonalInfoResponse
 import taxiapp.ride.dto.remote.response.FareCalculationResponse
-import taxiapp.ride.dto.requests.EmailSendRequest
 import taxiapp.ride.dto.requests.MatchingRequest
+import taxiapp.ride.dto.requests.PushNotificationRequest
 import taxiapp.ride.dto.response.ResponseInterface
 import taxiapp.ride.dto.response.ResultTO
 import taxiapp.ride.dto.response.RideRequestResponse
+import taxiapp.ride.dto.response.RideResponse
 import taxiapp.ride.model.Ride
 import taxiapp.ride.model.EventName
 import taxiapp.ride.model.PaymentStatus
 import taxiapp.ride.model.RideStatus
 import java.math.BigDecimal
-import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import kotlin.Int
 import kotlin.String
@@ -301,30 +301,67 @@ class RideServiceImpl @Autowired constructor(
         }
 
         val notificationUri = UriComponentsBuilder
-            .fromUriString("$notificationServiceAddress/api/notification/email")
-            .queryParam("username", driverUsername)
+            .fromUriString("$notificationServiceAddress/api/notification/push")
             .build()
             .toUri()
-
 
         val message = "Driver confirmed ride\nDriver information:" +
                 "\nfirstname: ${driverInfo.body!!.driverPersonalData.firstname}" +
                 "\nlastname: ${driverInfo.body!!.driverPersonalData.lastname}" +
                 "\nphone number: ${driverInfo.body!!.driverPersonalData.phoneNumber}"
 
-        val emailRequest = EmailSendRequest(
-            recipient = "266568@student.pwr.edu.pl",
-            subject = "TaxiApp notification",
+        val pushRequest = PushNotificationRequest(
+            username = ride.get().passengerUsername,
+            title = "Driver accepted ride",
             body = message
         )
 
-        val response = restTemplate.postForEntity(notificationUri, emailRequest, Object::class.java)
+        val response = restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
         ride.get().status = RideStatus.IN_PROGRESS
         ride.get().startTime = OffsetDateTime.now()
         rideRepository.save(ride.get())
         logger.info("fun driverConfirmedRide - Email sent successfully. Driver $driverUsername | ride ${ride.get()}")
 
         return  ResultTO(HttpStatus.OK)
+    }
+
+    override fun driverArrived(
+        rideId: Long,
+        driverUsername: String
+    ): ResponseInterface {
+        val ride = rideRepository.findById(rideId)
+
+        if (ride.isEmpty) {
+            logger.info("fun driverArrived - No ride with id $rideId")
+            return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
+        }
+
+        if (ride.get().status != RideStatus.IN_PROGRESS) {
+            logger.info("fun driverArrived - Ride $rideId that is not ${RideStatus.IN_PROGRESS}")
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Cannot finish ride $rideId that is not ${RideStatus.IN_PROGRESS}"))
+        }
+
+        if (ride.get().driverUsername != driverUsername) {
+            logger.info("fun driverArrived - Driver username does not match the driver assigned to ride $rideId")
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Driver username ($driverUsername) does not match the driver assigned to ride $rideId (${ride.get().driverUsername})"))
+        }
+
+        val notificationUri = UriComponentsBuilder
+            .fromUriString("$notificationServiceAddress/api/notification/push")
+            .build()
+            .toUri()
+
+        val message = "Driver is waiting for you at the selected pickup point";
+
+        val pushRequest = PushNotificationRequest(
+            username = ride.get().passengerUsername,
+            title = "Driver arrived",
+            body = message
+        )
+
+        val response = restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
+
+        return ResultTO(HttpStatus.OK, listOf("Driver arrived at pickup point"))
     }
 
     override fun finishRide(
@@ -364,6 +401,28 @@ class RideServiceImpl @Autowired constructor(
         logger.info("Ride $rideId finished")
 
         return ResultTO(HttpStatus.OK, listOf("Ride finished successfully"))
+    }
+
+    override fun getCurrentPassengerRide(passengerUsername: String): ResponseInterface {
+        val currentRides = rideRepository.findByPassengerUsernameAndStatus(passengerUsername, RideStatus.IN_PROGRESS)
+        if (currentRides.isEmpty()) {
+            return ResultTO(HttpStatus.NOT_FOUND)
+        }
+        if (currentRides.size > 1) {
+            return ResultTO(HttpStatus.INTERNAL_SERVER_ERROR, listOf("Passenger $passengerUsername has more than one Ride currently in progress."))
+        }
+        return RideResponse(currentRides[0])
+    }
+
+    override fun getCurrentDriverRide(driverUsername: String): ResponseInterface {
+        val currentRides = rideRepository.findByDriverUsernameAndStatus(driverUsername, RideStatus.IN_PROGRESS)
+        if (currentRides.isEmpty()) {
+            return ResultTO(HttpStatus.NOT_FOUND)
+        }
+        if (currentRides.size > 1) {
+            return ResultTO(HttpStatus.INTERNAL_SERVER_ERROR, listOf("Driver $driverUsername has more than one Ride currently in progress."))
+        }
+        return RideResponse(currentRides[0])
     }
 }
 

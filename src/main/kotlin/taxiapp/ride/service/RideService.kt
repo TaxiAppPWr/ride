@@ -11,5 +11,8 @@ interface RideService {
     fun getRideInfo(rideId: Long): Ride?
     fun findDriver(rideId: Long): ResponseInterface
     fun driverConfirmedRide(rideId: Long, driverUsername: String): ResponseInterface
+    fun driverArrived(rideId: Long, driverUsername: String): ResponseInterface
     fun finishRide(rideId: Long, driverUsername: String): ResponseInterface
+    fun getCurrentPassengerRide(passengerUsername: String): ResponseInterface
+    fun getCurrentDriverRide(driverUsername: String): ResponseInterface
 }

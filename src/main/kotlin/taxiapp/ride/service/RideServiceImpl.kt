@@ -39,7 +39,7 @@ class RideServiceImpl @Autowired constructor(
     @Qualifier("rideExchange") private val rideExchange: DirectExchange,
     private val template: RabbitTemplate,
     private val restTemplate: RestTemplate,
-    @Value("\${service.address.ppayment}")
+    @Value("\${service.address.payment}")
     private val passengerPaymentServiceAddress: String,
     @Value("\${service.address.fare}")
     private val fareServiceAddress: String,

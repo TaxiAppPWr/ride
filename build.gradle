@@ -56,6 +56,10 @@ kotlin {
     }
 }
 
+springBoot {
+    mainClass = "taxiapp.ride.RideApplicationKt"
+}
+
 tasks.named("test") {
     useJUnitPlatform()
 }

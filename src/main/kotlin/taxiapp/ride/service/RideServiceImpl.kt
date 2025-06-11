@@ -240,8 +240,10 @@ class RideServiceImpl @Autowired constructor(
 
         val request = MatchingRequest(
             rideId = rideId,
+            pickupAddress = "${pickupCoords.latitude},${pickupCoords.longitude}",
             pickupLatitude = pickupCoords.latitude,
             pickupLongitude = pickupCoords.longitude,
+            dropoffAddress = "${dropoffCoords.latitude},${dropoffCoords.longitude}",
             dropoffLatitude = dropoffCoords.latitude,
             dropoffLongitude = dropoffCoords.longitude,
             estimatedPrice = BigDecimal(ride.get().driverEarnings).divide(BigDecimal(100))
@@ -411,7 +413,12 @@ class RideServiceImpl @Autowired constructor(
         if (currentRides.size > 1) {
             return ResultTO(HttpStatus.INTERNAL_SERVER_ERROR, listOf("Passenger $passengerUsername has more than one Ride currently in progress."))
         }
-        return RideResponse(currentRides[0])
+        return currentRides[0].let {
+            RideResponse(
+                rideId = it.rideId!!,
+                status = it.status
+            )
+        }
     }
 
     override fun getCurrentDriverRide(driverUsername: String): ResponseInterface {
@@ -422,7 +429,12 @@ class RideServiceImpl @Autowired constructor(
         if (currentRides.size > 1) {
             return ResultTO(HttpStatus.INTERNAL_SERVER_ERROR, listOf("Driver $driverUsername has more than one Ride currently in progress."))
         }
-        return RideResponse(currentRides[0])
+        return currentRides[0].let {
+            RideResponse(
+                rideId = it.rideId!!,
+                status = it.status
+            )
+        }
     }
 }
 

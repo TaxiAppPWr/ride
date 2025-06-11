@@ -147,7 +147,8 @@ class RideServiceImpl @Autowired constructor(
         val event = CancelRideEvent(
             cancelRideEventId = eventCounterService.getNextId(EventName.CANCEL_RIDE),
             rideId = rideId,
-            refundPercentage = refundPercentage
+            refundPercentage = refundPercentage,
+            driverId = ride.get().driverUsername ?: "",
         )
         template.convertAndSend(rideExchange.name, cancelRideTopic, event)
         logger.info("Ride $rideId cancelled with $refundPercentage% refund")

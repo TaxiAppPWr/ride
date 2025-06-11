@@ -29,8 +29,8 @@ class RabbitConfig {
             setIdClassMapping(
                 mapOf(
                     "taxiapp.passengerpayment.dto.event.PassengerPaymentStatusUpdatedEvent" to PassengerPaymentStatusUpdatedEvent::class.java,
-                    "org.taxiapp.matching.dto.events.MatchingFailedEvent" to MatchingFailedEvent::class.java,
-                    "org.taxiapp.matching.dto.events.DriverMatchedEvent" to DriverMatchedEvent::class.java
+                    "org.taxiapp.matching.dto.events.out.MatchingFailedEvent" to MatchingFailedEvent::class.java,
+                    "org.taxiapp.matching.dto.events.out.DriverMatchedEvent" to DriverMatchedEvent::class.java
                 )
             )
         }

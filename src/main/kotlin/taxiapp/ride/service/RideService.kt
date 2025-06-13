@@ -6,6 +6,7 @@ import taxiapp.ride.model.Ride
 interface RideService {
     fun requestRide(originId: String, destinationId: String, passengerUsername: String): ResponseInterface
     fun acceptProposedRide(rideId: Long): ResponseInterface
+    fun rejectProposedRide(rideId: Long): ResponseInterface
     fun cancelRide(rideId: Long, refundPercentage: Int): ResponseInterface
     fun paymentStatusUpdated(rideId: Long, status: String): ResponseInterface
     fun getRideInfo(rideId: Long): Ride?

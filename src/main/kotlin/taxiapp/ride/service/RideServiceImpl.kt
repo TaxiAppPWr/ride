@@ -9,6 +9,8 @@ import taxiapp.ride.repository.RideRepository
 import org.springframework.amqp.rabbit.core.RabbitTemplate
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.http.HttpStatus
+import org.springframework.web.client.HttpServerErrorException
+import org.springframework.web.client.HttpStatusCodeException
 import org.springframework.web.client.RestTemplate
 import org.springframework.web.util.UriComponentsBuilder
 import taxiapp.ride.dto.event.CancelRideEvent
@@ -39,8 +41,6 @@ class RideServiceImpl @Autowired constructor(
     @Qualifier("rideExchange") private val rideExchange: DirectExchange,
     private val template: RabbitTemplate,
     private val restTemplate: RestTemplate,
-    @Value("\${service.address.payment}")
-    private val passengerPaymentServiceAddress: String,
     @Value("\${service.address.fare}")
     private val fareServiceAddress: String,
     @Value("\${service.address.maps}")
@@ -132,6 +132,22 @@ class RideServiceImpl @Autowired constructor(
         return ResultTO(HttpStatus.CREATED)
     }
 
+    override fun rejectProposedRide(rideId: Long): ResponseInterface {
+        val ride = rideRepository.findById(rideId)
+
+        if (!ride.isPresent) {
+            return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
+        }
+
+        if (ride.get().status != RideStatus.NEW) {
+            return ResultTO(HttpStatus.BAD_REQUEST, listOf("Ride with id $rideId has already been accepted"))
+        }
+
+        ride.get().status = RideStatus.CANCELLED
+
+        return ResultTO(HttpStatus.OK)
+    }
+
     override fun cancelRide(
         rideId: Long,
         refundPercentage: Int
@@ -172,6 +188,7 @@ class RideServiceImpl @Autowired constructor(
             logger.info("Finding driver")
             val result = findDriver(rideId)
             if (result.httpStatus == HttpStatus.SERVICE_UNAVAILABLE) {
+                logger.info("Error encountered when finding driver, cancelling ride.")
                 cancelRide(rideId, 100)
             }
             return result
@@ -292,15 +309,12 @@ class RideServiceImpl @Autowired constructor(
 
         if (!driverInfo.statusCode.is2xxSuccessful) {
             logger.error("Driver service returned: ${driverInfo.statusCode}")
-            return ResultTO(
-                httpStatus = HttpStatus.SERVICE_UNAVAILABLE,
-                messages = listOf("Driver service returned: ${driverInfo.statusCode}")
-            )
+            throw HttpServerErrorException(driverInfo.statusCode, "Driver service returned: ${driverInfo.statusCode}")
         }
 
         if (driverInfo.body == null) {
             logger.error("fun driverConfirmedRide - Driver info request returned empty body")
-            return ResultTO(HttpStatus.SERVICE_UNAVAILABLE)
+            throw HttpServerErrorException(driverInfo.statusCode, "fun driverConfirmedRide - Driver info request returned empty body")
         }
 
         val notificationUri = UriComponentsBuilder
@@ -319,7 +333,7 @@ class RideServiceImpl @Autowired constructor(
             body = message
         )
 
-        val response = restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
+        restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
         ride.get().status = RideStatus.IN_PROGRESS
         ride.get().startTime = OffsetDateTime.now()
         rideRepository.save(ride.get())

@@ -21,13 +21,11 @@ class MessageReceiver(
 
     @RabbitHandler
     fun receiveDriverMatchingFailedEvent(event: MatchingFailedEvent) {
-        println("Received matching failed event")
         rideService.cancelRide(event.rideId, 100)
     }
 
     @RabbitHandler
     fun receiveDriverMatchedEvent(event: DriverMatchedEvent) {
-        println("Received matched event")
         try {
             rideService.driverConfirmedRide(event.rideId, event.driverId)
         } catch (e: Exception) {

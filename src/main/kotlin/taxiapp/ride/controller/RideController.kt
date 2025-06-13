@@ -25,6 +25,12 @@ class RideController @Autowired constructor(
         return ResponseEntity.status(response.httpStatus).body(response.messages)
     }
 
+    @PostMapping("/reject/passenger")
+    fun rejectProposedRide(@RequestParam rideId: Long): ResponseEntity<Any> {
+        val response = rideService.acceptProposedRide(rideId)
+        return ResponseEntity.status(response.httpStatus).body(response.messages)
+    }
+
     @PostMapping("/arrived")
     fun arrived(@RequestParam rideId: Long, @RequestHeader("username") driverUsername: String): ResponseEntity<Any> {
         val response = rideService.driverArrived(rideId, driverUsername)

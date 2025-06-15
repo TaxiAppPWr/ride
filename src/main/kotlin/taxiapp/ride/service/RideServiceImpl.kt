@@ -169,6 +169,8 @@ class RideServiceImpl @Autowired constructor(
         template.convertAndSend(rideExchange.name, cancelRideTopic, event)
         logger.info("Ride $rideId cancelled with $refundPercentage% refund")
 
+        rideRepository.save(ride.get())
+
         return ResultTO(HttpStatus.CREATED)
     }
 

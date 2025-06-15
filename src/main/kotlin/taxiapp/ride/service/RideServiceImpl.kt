@@ -277,7 +277,7 @@ class RideServiceImpl @Autowired constructor(
                 messages = listOf("Matching service returned: ${response.statusCode}")
             )
         }
-        ride.get().status = RideStatus.AWAITING_DRIVER
+        ride.get().status = RideStatus.PAYMENT_RECEIVED
         rideRepository.save(ride.get())
         logger.info("fun findDriver - Ride $rideId awaiting driver confirmation.")
         return ResultTO(HttpStatus.OK)
@@ -294,7 +294,7 @@ class RideServiceImpl @Autowired constructor(
             return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
         }
 
-        if (ride.get().status != RideStatus.AWAITING_DRIVER) {
+        if (ride.get().status != RideStatus.PAYMENT_RECEIVED) {
             logger.error("fun driverConfirmedRide - Expected ride $rideId to have status ${RideStatus.AWAITING_DRIVER}. Ride status is ${ride.get().status}")
             return ResultTO(HttpStatus.BAD_REQUEST, listOf("Expected ride $rideId to have status ${RideStatus.AWAITING_DRIVER}"))
         }
@@ -336,7 +336,7 @@ class RideServiceImpl @Autowired constructor(
         )
 
         restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
-//        ride.get().status = RideStatus.IN_PROGRESS
+        ride.get().status = RideStatus.AWAITING_DRIVER
         ride.get().startTime = OffsetDateTime.now()
         rideRepository.save(ride.get())
         logger.info("fun driverConfirmedRide - Email sent successfully. Driver $driverUsername | ride ${ride.get()}")

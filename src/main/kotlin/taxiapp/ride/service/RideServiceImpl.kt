@@ -423,10 +423,7 @@ class RideServiceImpl @Autowired constructor(
     override fun getCurrentPassengerRide(passengerUsername: String): ResponseInterface {
         val currentRides = rideRepository.findByPassengerUsernameAndStatusNotIn(passengerUsername, listOf(
             RideStatus.CANCELLED,
-            RideStatus.FINISHED,
-            RideStatus.NEW,
-            RideStatus.AWAITING_PAYMENT,
-            RideStatus.AWAITING_DRIVER,
+            RideStatus.FINISHED
         ))
         if (currentRides.isEmpty()) {
             return ResultTO(HttpStatus.NOT_FOUND)
@@ -451,6 +448,9 @@ class RideServiceImpl @Autowired constructor(
         val currentRides = rideRepository.findByDriverUsernameAndStatusNotIn(driverUsername, listOf(
             RideStatus.CANCELLED,
             RideStatus.FINISHED,
+            RideStatus.NEW,
+            RideStatus.AWAITING_PAYMENT,
+            RideStatus.AWAITING_DRIVER,
         ))
         if (currentRides.isEmpty()) {
             return ResultTO(HttpStatus.NOT_FOUND)

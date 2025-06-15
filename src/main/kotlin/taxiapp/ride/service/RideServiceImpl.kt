@@ -431,7 +431,12 @@ class RideServiceImpl @Autowired constructor(
         return currentRides[0].let {
             RideResponse(
                 rideId = it.rideId!!,
-                status = it.status
+                status = it.status,
+                pickupId = it.pickupId,
+                destinationId = it.destinationId,
+                fare = it.fare,
+                distance = it.distance,
+                duration = it.duration,
             )
         }
     }
@@ -447,7 +452,12 @@ class RideServiceImpl @Autowired constructor(
         return currentRides[0].let {
             RideResponse(
                 rideId = it.rideId!!,
-                status = it.status
+                status = it.status,
+                pickupId = it.pickupId,
+                destinationId = it.destinationId,
+                fare = it.fare,
+                distance = it.distance,
+                duration = it.duration,
             )
         }
     }

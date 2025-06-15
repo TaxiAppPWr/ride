@@ -82,4 +82,12 @@ class RideController @Autowired constructor(
         return ResponseEntity.ok(response)
     }
 
+    @GetMapping("/health")
+    fun getHealthRide(): ResponseEntity<Any> {
+        return ResponseEntity.ok(mapOf(
+            "status" to "UP",
+            "service" to "ride-service"
+        ))
+    }
+
 }

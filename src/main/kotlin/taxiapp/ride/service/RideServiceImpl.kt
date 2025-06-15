@@ -336,7 +336,7 @@ class RideServiceImpl @Autowired constructor(
         )
 
         restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
-        ride.get().status = RideStatus.IN_PROGRESS
+//        ride.get().status = RideStatus.IN_PROGRESS
         ride.get().startTime = OffsetDateTime.now()
         rideRepository.save(ride.get())
         logger.info("fun driverConfirmedRide - Email sent successfully. Driver $driverUsername | ride ${ride.get()}")
@@ -355,7 +355,7 @@ class RideServiceImpl @Autowired constructor(
             return ResultTO(HttpStatus.NOT_FOUND, listOf("No ride with id $rideId"))
         }
 
-        if (ride.get().status != RideStatus.IN_PROGRESS) {
+        if (ride.get().status != RideStatus.AWAITING_DRIVER) {
             logger.info("fun driverArrived - Ride $rideId that is not ${RideStatus.IN_PROGRESS}")
             return ResultTO(HttpStatus.BAD_REQUEST, listOf("Cannot finish ride $rideId that is not ${RideStatus.IN_PROGRESS}"))
         }
@@ -377,6 +377,9 @@ class RideServiceImpl @Autowired constructor(
             title = "Driver arrived",
             body = message
         )
+
+        ride.get().status = RideStatus.IN_PROGRESS
+        rideRepository.save(ride.get())
 
         val response = restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
 

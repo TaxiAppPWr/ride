@@ -5,6 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import taxiapp.ride.model.RideStatus
 
 interface RideRepository : JpaRepository<Ride, Long> {
-    fun findByPassengerUsernameAndStatus(passengerUsername: String, status: RideStatus): List<Ride>
-    fun findByDriverUsernameAndStatus(driverUsername: String, status: RideStatus): List<Ride>
+    fun findByPassengerUsernameAndStatusNotIn(passengerUsername: String, status: Collection<RideStatus>): List<Ride>
+    fun findByDriverUsernameAndStatusNotIn(driverUsername: String, status: Collection<RideStatus>): List<Ride>
 }

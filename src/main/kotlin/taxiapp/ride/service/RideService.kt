@@ -1,5 +1,6 @@
 package taxiapp.ride.service
 
+import taxiapp.ride.dto.event.MatchingFailedEvent
 import taxiapp.ride.dto.response.ResponseInterface
 import taxiapp.ride.model.Ride
 
@@ -16,4 +17,5 @@ interface RideService {
     fun finishRide(rideId: Long, driverUsername: String): ResponseInterface
     fun getCurrentPassengerRide(passengerUsername: String): ResponseInterface
     fun getCurrentDriverRide(driverUsername: String): ResponseInterface
+    fun pushNotMatched(event: MatchingFailedEvent)
 }

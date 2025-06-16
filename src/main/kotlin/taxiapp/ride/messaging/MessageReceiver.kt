@@ -21,6 +21,7 @@ class MessageReceiver(
 
     @RabbitHandler
     fun receiveDriverMatchingFailedEvent(event: MatchingFailedEvent) {
+        rideService.pushNotMatched(event);
         rideService.cancelRide(event.rideId, 100)
     }
 

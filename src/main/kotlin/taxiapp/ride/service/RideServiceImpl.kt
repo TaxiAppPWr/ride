@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate
 import org.springframework.web.util.UriComponentsBuilder
 import taxiapp.ride.dto.event.CancelRideEvent
 import taxiapp.ride.dto.event.GeneratePaymentEvent
+import taxiapp.ride.dto.event.MatchingFailedEvent
 import taxiapp.ride.dto.event.RideFinishedEvent
 import taxiapp.ride.dto.remote.response.CoordinatesTO
 import taxiapp.ride.dto.remote.response.DriverPersonalInfoResponse
@@ -475,6 +476,30 @@ class RideServiceImpl @Autowired constructor(
                 duration = it.duration,
             )
         }
+    }
+
+    override fun pushNotMatched(event: MatchingFailedEvent) {
+        val ride = rideRepository.findById(event.rideId)
+
+        if (ride.isEmpty) {
+            logger.error("fun pushNotMatched - No ride with id ${event.rideId}")
+            return
+        }
+
+        val notificationUri = UriComponentsBuilder
+            .fromUriString("$notificationServiceAddress/api/notification/push")
+            .build()
+            .toUri()
+
+        val message = "Could not find a driver for your ride request. You will receive a refund."
+
+        val pushRequest = PushNotificationRequest(
+            username = ride.get().passengerUsername,
+            title = "Driver not found",
+            body = message
+        )
+
+        restTemplate.postForEntity(notificationUri, pushRequest, Object::class.java)
     }
 }
 

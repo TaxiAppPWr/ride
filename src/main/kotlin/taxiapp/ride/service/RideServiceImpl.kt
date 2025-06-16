@@ -144,6 +144,7 @@ class RideServiceImpl @Autowired constructor(
         }
 
         ride.get().status = RideStatus.CANCELLED
+        rideRepository.save(ride.get())
 
         return ResultTO(HttpStatus.OK)
     }
